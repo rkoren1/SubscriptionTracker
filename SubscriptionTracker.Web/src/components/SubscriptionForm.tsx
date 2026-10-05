@@ -1,6 +1,7 @@
 import type { ChangeEvent, FormEvent } from 'react';
 
 import type { SubscriptionForm as SubscriptionFormState } from '../types';
+import './SubscriptionForm.css';
 
 interface SubscriptionFormProps {
   form: SubscriptionFormState;

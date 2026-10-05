@@ -1,0 +1,62 @@
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.view-switcher {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.view-button {
+  border: none;
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: transparent;
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.view-button.active {
+  background: linear-gradient(
+    135deg,
+    rgba(139, 92, 246, 0.25),
+    rgba(59, 130, 246, 0.2)
+  );
+  color: #f8fafc;
+}
+
+.user-greeting {
+  max-width: 180px;
+  overflow: hidden;
+  color: #cbd5e1;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  .topbar,
+  .topbar-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .topbar-actions {
+    width: 100%;
+  }
+}

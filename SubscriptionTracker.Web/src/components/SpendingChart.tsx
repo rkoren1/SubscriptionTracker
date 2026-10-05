@@ -1,3 +1,5 @@
+import './SpendingChart.css';
+
 export type SpendingChartPoint = {
   monthKey: string;
   label: string;

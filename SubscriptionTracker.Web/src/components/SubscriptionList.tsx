@@ -1,4 +1,5 @@
 import type { Subscription } from '../types';
+import './SubscriptionList.css';
 
 interface SubscriptionListProps {
   subscriptions: Subscription[];

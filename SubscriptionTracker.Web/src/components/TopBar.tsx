@@ -1,4 +1,5 @@
 import type { AuthUser } from '../types';
+import './TopBar.css';
 
 type ViewMode = 'overview' | 'chart';
 
