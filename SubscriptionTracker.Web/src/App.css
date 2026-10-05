@@ -16,6 +16,34 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+.view-switcher {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.view-button {
+  border: none;
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: transparent;
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.view-button.active {
+  background: linear-gradient(
+    135deg,
+    rgba(139, 92, 246, 0.25),
+    rgba(59, 130, 246, 0.2)
+  );
+  color: #f8fafc;
 }
 
 .user-greeting {
@@ -55,7 +83,8 @@ h1 {
   color: #f8fafc;
 }
 
-.summary-grid {
+.summary-grid,
+.chart-summary-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(160px, 1fr));
   gap: 16px;
@@ -305,6 +334,120 @@ select:focus {
   align-items: flex-end;
 }
 
+.chart-page {
+  display: block;
+}
+
+.chart-panel {
+  padding: 22px;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  color: #cbd5e1;
+  font-size: 0.86rem;
+  margin-bottom: 18px;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  margin-right: 8px;
+}
+
+.monthly-dot {
+  background: #8b5cf6;
+}
+
+.cumulative-dot {
+  background: #38bdf8;
+}
+
+.chart-svg {
+  width: 100%;
+  height: auto;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.chart-gridline {
+  stroke: rgba(148, 163, 184, 0.18);
+  stroke-width: 1;
+}
+
+.chart-line {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.monthly-line {
+  stroke: #8b5cf6;
+}
+
+.cumulative-line {
+  stroke: #38bdf8;
+}
+
+.chart-bar {
+  fill: rgba(139, 92, 246, 0.68);
+  cursor: pointer;
+  transition:
+    fill 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.chart-bar.selected {
+  fill: rgba(139, 92, 246, 0.95);
+}
+
+.chart-point {
+  fill: #f8fafc;
+  stroke: #8b5cf6;
+  stroke-width: 2;
+  cursor: pointer;
+}
+
+.chart-point.selected {
+  fill: #8b5cf6;
+  stroke: #f8fafc;
+}
+
+.chart-ticks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.chart-tick {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.7);
+  color: #cbd5e1;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
+.chart-tick.active {
+  background: rgba(139, 92, 246, 0.18);
+  border-color: rgba(139, 92, 246, 0.6);
+  color: #f8fafc;
+}
+
 .empty-state {
   color: #94a3b8;
   text-align: center;
@@ -313,6 +456,7 @@ select:focus {
 
 @media (max-width: 860px) {
   .summary-grid,
+  .chart-summary-grid,
   .content-grid,
   .two-column {
     grid-template-columns: 1fr;

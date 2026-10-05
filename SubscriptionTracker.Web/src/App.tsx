@@ -2,15 +2,22 @@ import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import './App.css';
 import AuthPage from './AuthPage';
+import SpendingChart, {
+  type SpendingChartPoint,
+} from './components/SpendingChart';
+import SubscriptionForm from './components/SubscriptionForm';
+import SubscriptionList from './components/SubscriptionList';
+import SummaryCards from './components/SummaryCards';
+import TopBar from './components/TopBar';
 import type {
   AuthUser,
   BillingCycle,
   Subscription,
-  SubscriptionForm,
+  SubscriptionForm as SubscriptionFormState,
   SubscriptionRequest,
 } from './types';
 
-const emptyForm: SubscriptionForm = {
+const emptyForm: SubscriptionFormState = {
   id: '',
   name: '',
   category: 'Entertainment',
@@ -21,6 +28,8 @@ const emptyForm: SubscriptionForm = {
   endDate: '',
   isActive: true,
 };
+
+type ViewMode = 'overview' | 'chart';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5283';
 const LOCAL_STORAGE_KEY = 'subscription-tracker-subscriptions';
@@ -36,6 +45,102 @@ const monthlyMultipliers: Record<BillingCycle, number> = {
   2: 1 / 3,
   3: 1 / 12,
 };
+
+function buildSpendingChart(
+  subscriptions: Subscription[],
+): SpendingChartPoint[] {
+  if (subscriptions.length === 0) {
+    return [];
+  }
+
+  const allCreatedDates = subscriptions
+    .map((subscription) => new Date(subscription.createdAt))
+    .filter((date) => !Number.isNaN(date.getTime()));
+
+  if (allCreatedDates.length === 0) {
+    return [];
+  }
+
+  const earliestMonth = new Date(
+    Math.min(...allCreatedDates.map((date) => date.getTime())),
+  );
+  const startMonth = new Date(
+    earliestMonth.getFullYear(),
+    earliestMonth.getMonth(),
+    1,
+  );
+  const currentMonth = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth(),
+    1,
+  );
+
+  const points: SpendingChartPoint[] = [];
+  let cumulativeSpend = 0;
+
+  for (
+    let cursor = new Date(startMonth);
+    cursor <= currentMonth;
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)
+  ) {
+    const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+    const monthEnd = new Date(
+      cursor.getFullYear(),
+      cursor.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
+
+    const monthlySpend = subscriptions.reduce((sum, subscription) => {
+      const createdAt = new Date(subscription.createdAt);
+      const endDate = subscription.endDate
+        ? new Date(subscription.endDate)
+        : null;
+
+      if (createdAt > monthEnd) {
+        return sum;
+      }
+
+      if (endDate && endDate < monthStart) {
+        return sum;
+      }
+
+      if (!subscription.isActive && (!endDate || endDate < monthEnd)) {
+        return sum;
+      }
+
+      return (
+        sum + subscription.price * monthlyMultipliers[subscription.billingCycle]
+      );
+    }, 0);
+
+    const previousMonthlySpend = points[points.length - 1]?.monthlySpend ?? 0;
+    cumulativeSpend += monthlySpend;
+
+    const changeFromPrevious = monthlySpend - previousMonthlySpend;
+    const changePercent =
+      previousMonthlySpend === 0
+        ? 0
+        : (changeFromPrevious / previousMonthlySpend) * 100;
+
+    points.push({
+      monthKey: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`,
+      label: cursor.toLocaleString('en-US', {
+        month: 'short',
+        year: '2-digit',
+      }),
+      monthlySpend,
+      cumulativeSpend,
+      changeFromPrevious,
+      changePercent,
+    });
+  }
+
+  return points;
+}
 
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
@@ -79,13 +184,15 @@ function App() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(
     readLocalSubscriptions,
   );
-  const [form, setForm] = useState<SubscriptionForm>(emptyForm);
+  const [form, setForm] = useState<SubscriptionFormState>(emptyForm);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isShowingAuth, setIsShowingAuth] = useState(false);
+  const [activeView, setActiveView] = useState<ViewMode>('overview');
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState(0);
 
   useEffect(() => {
     if (!isCheckingSession && !currentUser) {
@@ -117,6 +224,17 @@ function App() {
       estimatedMonthlySpend,
     };
   }, [subscriptions]);
+
+  const chartData = useMemo(
+    () => buildSpendingChart(subscriptions),
+    [subscriptions],
+  );
+
+  useEffect(() => {
+    if (chartData.length > 0) {
+      setSelectedMonthIndex(chartData.length - 1);
+    }
+  }, [chartData.length]);
 
   const fetchSubscriptions = async (): Promise<void> => {
     try {
@@ -224,7 +342,7 @@ function App() {
         ({
           ...previous,
           [target.name]: value,
-        }) as SubscriptionForm,
+        }) as SubscriptionFormState,
     );
   };
 
@@ -363,250 +481,46 @@ function App() {
 
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">Overview</p>
-          <h1>Subscription Tracker</h1>
-        </div>
-        <div className="topbar-actions">
-          <span className="user-greeting">
-            {currentUser ? currentUser.displayName : 'Saved on this device'}
-          </span>
-          {currentUser ? (
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={handleLogout}
-            >
-              Sign out
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={() => setIsShowingAuth(true)}
-            >
-              Sign in to sync
-            </button>
-          )}
-          <button type="button" className="ghost-button" onClick={resetForm}>
-            New subscription
-          </button>
-        </div>
-      </header>
+      <TopBar
+        activeView={activeView}
+        currentUser={currentUser}
+        onViewChange={setActiveView}
+        onLogout={handleLogout}
+        onOpenAuth={() => setIsShowingAuth(true)}
+        onNewSubscription={resetForm}
+      />
 
-      <section className="summary-grid">
-        <article className="metric-card">
-          <span>Active plans</span>
-          <strong>{summary.activeCount}</strong>
-        </article>
-        <article className="metric-card">
-          <span>Estimated monthly</span>
-          <strong>${summary.estimatedMonthlySpend.toFixed(2)}</strong>
-        </article>
-        <article className="metric-card accent">
-          <span>Yearly total</span>
-          <strong>${summary.yearlyTotal.toFixed(2)}</strong>
-        </article>
-      </section>
+      {activeView === 'overview' ? (
+        <>
+          <SummaryCards summary={summary} />
 
-      <main className="content-grid">
-        <section className="panel form-panel">
-          <h2>{isEditing ? 'Edit subscription' : 'Add a subscription'}</h2>
+          <main className="content-grid">
+            <SubscriptionForm
+              form={form}
+              isEditing={isEditing}
+              isSubmitting={isSubmitting}
+              error={error}
+              success={success}
+              onChange={handleChange}
+              onSubmit={handleSubmit}
+              onCancel={resetForm}
+            />
 
-          <form onSubmit={handleSubmit} className="subscription-form">
-            <label>
-              Name
-              <input
-                name="name"
-                value={form.name}
-                onChange={handleChange}
-                placeholder="Netflix"
-                required
-              />
-            </label>
-
-            <div className="two-column">
-              <label>
-                Category
-                <input
-                  name="category"
-                  value={form.category}
-                  onChange={handleChange}
-                />
-              </label>
-
-              <label>
-                Currency
-                <select
-                  name="currency"
-                  value={form.currency}
-                  onChange={handleChange}
-                >
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                  <option value="GBP">GBP</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="two-column">
-              <label>
-                Price
-                <input
-                  name="price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={form.price}
-                  onChange={handleChange}
-                  required
-                />
-              </label>
-
-              <label>
-                Billing cycle
-                <select
-                  name="billingCycle"
-                  value={form.billingCycle}
-                  onChange={handleChange}
-                >
-                  <option value={0}>Weekly</option>
-                  <option value={1}>Monthly</option>
-                  <option value={2}>Quarterly</option>
-                  <option value={3}>Yearly</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="two-column">
-              <label>
-                Next billing
-                <input
-                  name="nextBillingDate"
-                  type="date"
-                  value={form.nextBillingDate}
-                  onChange={handleChange}
-                />
-              </label>
-
-              <label>
-                End date (optional)
-                <input
-                  name="endDate"
-                  type="date"
-                  value={form.endDate}
-                  onChange={handleChange}
-                />
-              </label>
-
-              <label className="checkbox-inline">
-                <input
-                  name="isActive"
-                  type="checkbox"
-                  checked={form.isActive}
-                  onChange={handleChange}
-                />
-                Active
-              </label>
-            </div>
-
-            {(error || success) && (
-              <p className={error ? 'message error' : 'message success'}>
-                {error || success}
-              </p>
-            )}
-
-            <div className="form-actions">
-              <button
-                type="submit"
-                className="primary-button"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Save'}
-              </button>
-              {isEditing && (
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={resetForm}
-                >
-                  Cancel
-                </button>
-              )}
-            </div>
-          </form>
-        </section>
-
-        <section className="panel list-panel">
-          <h2>Subscriptions</h2>
-
-          {isLoading ? (
-            <p className="empty-state">Loading subscriptions...</p>
-          ) : subscriptions.length === 0 ? (
-            <p className="empty-state">
-              No subscriptions yet. Add your first plan.
-            </p>
-          ) : (
-            <div className="subscription-list">
-              {subscriptions.map((subscription) => (
-                <article key={subscription.id} className="subscription-card">
-                  <div className="subscription-header">
-                    <div>
-                      <h3>{subscription.name}</h3>
-                      <p>{subscription.category}</p>
-                    </div>
-                    <span
-                      className={`status ${subscription.isActive ? 'active' : 'inactive'}`}
-                    >
-                      {subscription.isActive ? 'Active' : 'Paused'}
-                    </span>
-                  </div>
-
-                  <div className="subscription-meta">
-                    <strong>
-                      {subscription.currency} {subscription.price.toFixed(2)}
-                    </strong>
-                    <span>
-                      {
-                        ['Weekly', 'Monthly', 'Quarterly', 'Yearly'][
-                          subscription.billingCycle
-                        ]
-                      }
-                    </span>
-                  </div>
-
-                  <div className="subscription-footer">
-                    <small>
-                      {subscription.endDate
-                        ? `Ends: ${subscription.endDate}`
-                        : 'Ongoing'}
-                      {' · Next billing: '}
-                      {subscription.nextBillingDate}
-                    </small>
-                    <div className="card-actions">
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        onClick={() => handleEdit(subscription)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="danger-button"
-                        onClick={() => handleDelete(subscription.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-      </main>
+            <SubscriptionList
+              subscriptions={subscriptions}
+              isLoading={isLoading}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          </main>
+        </>
+      ) : (
+        <SpendingChart
+          chartData={chartData}
+          selectedMonthIndex={selectedMonthIndex}
+          onSelectMonth={setSelectedMonthIndex}
+        />
+      )}
     </div>
   );
 }
