@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -28,6 +29,67 @@ public class SubscriptionsController : ControllerBase
             .ToListAsync();
 
         return Ok(subscriptions);
+    }
+
+    [HttpPost("import")]
+    public async Task<IActionResult> ImportSubscriptions(
+        IReadOnlyList<ImportSubscriptionRequest> subscriptions,
+        CancellationToken cancellationToken)
+    {
+        if (subscriptions.Any(x => x.Id == Guid.Empty) ||
+            subscriptions.Select(x => x.Id).Distinct().Count() != subscriptions.Count)
+        {
+            return BadRequest("Subscription IDs must be present and unique.");
+        }
+
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        var ids = subscriptions.Select(x => x.Id).ToArray();
+        var existing = await _context.Subscriptions
+            .Where(x => ids.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, cancellationToken);
+
+        if (existing.Values.Any(x => x.UserId != CurrentUserId))
+        {
+            return Conflict("One or more subscription IDs are already in use.");
+        }
+
+        var now = DateTime.UtcNow;
+        foreach (var request in subscriptions)
+        {
+            if (existing.TryGetValue(request.Id, out var subscription))
+            {
+                subscription.Name = request.Name;
+                subscription.Category = request.Category;
+                subscription.Price = request.Price;
+                subscription.Currency = request.Currency;
+                subscription.BillingCycle = request.BillingCycle;
+                subscription.NextBillingDate = request.NextBillingDate;
+                subscription.EndDate = request.EndDate;
+                subscription.IsActive = request.IsActive;
+                subscription.UpdatedAt = now;
+                continue;
+            }
+
+            _context.Subscriptions.Add(new Subscription
+            {
+                Id = request.Id,
+                UserId = CurrentUserId,
+                Name = request.Name,
+                Category = request.Category,
+                Price = request.Price,
+                Currency = request.Currency,
+                BillingCycle = request.BillingCycle,
+                NextBillingDate = request.NextBillingDate,
+                EndDate = request.EndDate,
+                IsActive = request.IsActive,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return NoContent();
     }
 
     [HttpGet("{id:guid}")]
@@ -84,6 +146,7 @@ public class SubscriptionsController : ControllerBase
         existingSubscription.Currency = subscription.Currency;
         existingSubscription.BillingCycle = subscription.BillingCycle;
         existingSubscription.NextBillingDate = subscription.NextBillingDate;
+        existingSubscription.EndDate = subscription.EndDate;
         existingSubscription.IsActive = subscription.IsActive;
         existingSubscription.UpdatedAt = DateTime.UtcNow;
 
@@ -109,4 +172,27 @@ public class SubscriptionsController : ControllerBase
     }
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+}
+
+public sealed record ImportSubscriptionRequest
+{
+    [Required]
+    public required Guid Id { get; init; }
+
+    [Required, MaxLength(200)]
+    public required string Name { get; init; }
+
+    [MaxLength(100)]
+    public string Category { get; init; } = "General";
+
+    [Range(0, 999999999)]
+    public required decimal Price { get; init; }
+
+    [Required, MaxLength(10)]
+    public required string Currency { get; init; }
+
+    public required BillingCycle BillingCycle { get; init; }
+    public required DateOnly NextBillingDate { get; init; }
+    public DateOnly? EndDate { get; init; }
+    public bool IsActive { get; init; } = true;
 }

@@ -7,6 +7,7 @@ type AuthMode = 'login' | 'register';
 
 interface AuthPageProps {
   onAuthenticated: (user: AuthUser) => Promise<void>;
+  onContinueWithoutAccount: () => void;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5283';
@@ -33,7 +34,10 @@ function getErrorMessage(error: unknown): string {
     : 'Unable to sign in. Please try again.';
 }
 
-function AuthPage({ onAuthenticated }: AuthPageProps) {
+function AuthPage({
+  onAuthenticated,
+  onContinueWithoutAccount,
+}: AuthPageProps) {
   const [mode, setMode] = useState<AuthMode>('login');
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -342,6 +346,13 @@ function AuthPage({ onAuthenticated }: AuthPageProps) {
             By continuing, you agree to use this account for your personal
             subscription records.
           </p>
+          <button
+            className="auth-guest"
+            type="button"
+            onClick={onContinueWithoutAccount}
+          >
+            Continue without an account
+          </button>
         </div>
       </section>
     </main>

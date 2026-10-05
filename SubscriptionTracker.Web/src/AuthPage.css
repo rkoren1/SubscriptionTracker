@@ -346,6 +346,17 @@
   text-align: center;
 }
 
+.auth-guest {
+  width: 100%;
+  margin-top: 14px;
+  padding: 10px;
+  border: 1px solid #cbd3ca;
+  border-radius: 3px;
+  background: transparent;
+  color: #354641;
+  cursor: pointer;
+}
+
 @media (max-width: 760px) {
   .auth-screen {
     min-height: 100svh;

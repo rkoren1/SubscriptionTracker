@@ -15,6 +15,7 @@ export interface Subscription {
   currency: string;
   billingCycle: BillingCycle;
   nextBillingDate: string;
+  endDate: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -28,6 +29,7 @@ export interface SubscriptionForm {
   currency: string;
   billingCycle: BillingCycle;
   nextBillingDate: string;
+  endDate: string;
   isActive: boolean;
 }
 
@@ -38,5 +40,6 @@ export interface SubscriptionRequest {
   currency: string;
   billingCycle: BillingCycle;
   nextBillingDate: string;
+  endDate: string | null;
   isActive: boolean;
 }

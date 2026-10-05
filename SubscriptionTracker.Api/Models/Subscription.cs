@@ -10,6 +10,7 @@ public class Subscription
     public string Currency { get; set; } = "USD";
     public BillingCycle BillingCycle { get; set; }
     public DateOnly NextBillingDate { get; set; }
+    public DateOnly? EndDate { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

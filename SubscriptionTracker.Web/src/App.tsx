@@ -18,10 +18,12 @@ const emptyForm: SubscriptionForm = {
   currency: 'USD',
   billingCycle: 1,
   nextBillingDate: new Date().toISOString().slice(0, 10),
+  endDate: '',
   isActive: true,
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5283';
+const LOCAL_STORAGE_KEY = 'subscription-tracker-subscriptions';
 const annualMultipliers: Record<BillingCycle, number> = {
   0: 52,
   1: 12,
@@ -39,16 +41,57 @@ function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
+function readLocalSubscriptions(): Subscription[] {
+  try {
+    const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+    return stored ? (JSON.parse(stored) as Subscription[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalSubscriptions(subscriptions: Subscription[]): void {
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(subscriptions));
+}
+
+async function importLocalSubscriptions(): Promise<void> {
+  const localSubscriptions = readLocalSubscriptions();
+  if (localSubscriptions.length === 0) return;
+
+  const response = await fetch(`${API_BASE_URL}/api/subscriptions/import`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(localSubscriptions),
+  });
+  if (!response.ok) {
+    throw new Error(
+      (await response.text()) || 'Unable to import local subscriptions.',
+    );
+  }
+
+  localStorage.removeItem(LOCAL_STORAGE_KEY);
+}
+
 function App() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>(
+    readLocalSubscriptions,
+  );
   const [form, setForm] = useState<SubscriptionForm>(emptyForm);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isShowingAuth, setIsShowingAuth] = useState(false);
+
+  useEffect(() => {
+    if (!isCheckingSession && !currentUser) {
+      writeLocalSubscriptions(subscriptions);
+    }
+  }, [currentUser, isCheckingSession, subscriptions]);
 
   const summary = useMemo(() => {
     const activeSubscriptions = subscriptions.filter(
@@ -102,12 +145,15 @@ function App() {
       try {
         const sessionResponse = await fetch(`${API_BASE_URL}/api/auth/me`, {
           credentials: 'include',
-        });
-        if (!sessionResponse.ok) return;
+        }).catch(() => null);
+        if (!sessionResponse?.ok) return;
 
         const user = (await sessionResponse.json()) as AuthUser;
         if (cancelled) return;
+        await importLocalSubscriptions();
+        if (cancelled) return;
         setCurrentUser(user);
+        setIsLoading(true);
 
         const subscriptionResponse = await fetch(
           `${API_BASE_URL}/api/subscriptions`,
@@ -138,10 +184,12 @@ function App() {
   }, []);
 
   const handleAuthenticated = async (user: AuthUser): Promise<void> => {
+    await importLocalSubscriptions();
     setCurrentUser(user);
     setError('');
     setSuccess('');
     await fetchSubscriptions();
+    setIsShowingAuth(false);
   };
 
   const handleLogout = async (): Promise<void> => {
@@ -150,7 +198,7 @@ function App() {
       credentials: 'include',
     }).catch(() => undefined);
     setCurrentUser(null);
-    setSubscriptions([]);
+    setSubscriptions(readLocalSubscriptions());
     resetForm();
   };
 
@@ -202,6 +250,7 @@ function App() {
       currency: form.currency,
       billingCycle: form.billingCycle,
       nextBillingDate: form.nextBillingDate,
+      endDate: form.endDate || null,
       isActive: form.isActive,
     };
 
@@ -210,19 +259,37 @@ function App() {
       : '/api/subscriptions';
 
     try {
-      const response = await fetch(`${API_BASE_URL}${path}`, {
-        method: isEditing ? 'PUT' : 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      if (currentUser) {
+        const response = await fetch(`${API_BASE_URL}${path}`, {
+          method: isEditing ? 'PUT' : 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...payload, id: form.id }),
+        });
 
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || 'The operation failed.');
+        if (!response.ok) {
+          const message = await response.text();
+          throw new Error(message || 'The operation failed.');
+        }
+        await fetchSubscriptions();
+      } else {
+        const now = new Date().toISOString();
+        const savedSubscription: Subscription = {
+          ...payload,
+          id: isEditing ? form.id : crypto.randomUUID(),
+          userId: null,
+          createdAt: now,
+          updatedAt: now,
+        };
+        const updatedSubscriptions = isEditing
+          ? subscriptions.map((item) =>
+              item.id === savedSubscription.id ? savedSubscription : item,
+            )
+          : [...subscriptions, savedSubscription];
+        writeLocalSubscriptions(updatedSubscriptions);
+        setSubscriptions(updatedSubscriptions);
       }
 
-      await fetchSubscriptions();
       resetForm();
       setSuccess(
         isEditing
@@ -245,6 +312,7 @@ function App() {
       currency: subscription.currency,
       billingCycle: subscription.billingCycle,
       nextBillingDate: subscription.nextBillingDate,
+      endDate: subscription.endDate ?? '',
       isActive: subscription.isActive,
     });
     setIsEditing(true);
@@ -254,16 +322,27 @@ function App() {
 
   const handleDelete = async (id: string): Promise<void> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/subscriptions/${id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
+      if (currentUser) {
+        const response = await fetch(
+          `${API_BASE_URL}/api/subscriptions/${id}`,
+          {
+            method: 'DELETE',
+            credentials: 'include',
+          },
+        );
 
-      if (!response.ok) {
-        throw new Error('Unable to delete subscription');
+        if (!response.ok) {
+          throw new Error('Unable to delete subscription');
+        }
+        await fetchSubscriptions();
+      } else {
+        const updatedSubscriptions = subscriptions.filter(
+          (item) => item.id !== id,
+        );
+        writeLocalSubscriptions(updatedSubscriptions);
+        setSubscriptions(updatedSubscriptions);
       }
 
-      await fetchSubscriptions();
       if (form.id === id) {
         resetForm();
       }
@@ -273,16 +352,13 @@ function App() {
     }
   };
 
-  if (isCheckingSession) {
+  if (isShowingAuth) {
     return (
-      <main className="auth-loading" aria-label="Loading account">
-        Loading...
-      </main>
+      <AuthPage
+        onAuthenticated={handleAuthenticated}
+        onContinueWithoutAccount={() => setIsShowingAuth(false)}
+      />
     );
-  }
-
-  if (!currentUser) {
-    return <AuthPage onAuthenticated={handleAuthenticated} />;
   }
 
   return (
@@ -293,12 +369,28 @@ function App() {
           <h1>Subscription Tracker</h1>
         </div>
         <div className="topbar-actions">
-          <span className="user-greeting">{currentUser.displayName}</span>
+          <span className="user-greeting">
+            {currentUser ? currentUser.displayName : 'Saved on this device'}
+          </span>
+          {currentUser ? (
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={handleLogout}
+            >
+              Sign out
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => setIsShowingAuth(true)}
+            >
+              Sign in to sync
+            </button>
+          )}
           <button type="button" className="ghost-button" onClick={resetForm}>
             New subscription
-          </button>
-          <button type="button" className="ghost-button" onClick={handleLogout}>
-            Sign out
           </button>
         </div>
       </header>
@@ -398,6 +490,16 @@ function App() {
                 />
               </label>
 
+              <label>
+                End date (optional)
+                <input
+                  name="endDate"
+                  type="date"
+                  value={form.endDate}
+                  onChange={handleChange}
+                />
+              </label>
+
               <label className="checkbox-inline">
                 <input
                   name="isActive"
@@ -475,7 +577,13 @@ function App() {
                   </div>
 
                   <div className="subscription-footer">
-                    <small>Next billing: {subscription.nextBillingDate}</small>
+                    <small>
+                      {subscription.endDate
+                        ? `Ends: ${subscription.endDate}`
+                        : 'Ongoing'}
+                      {' · Next billing: '}
+                      {subscription.nextBillingDate}
+                    </small>
                     <div className="card-actions">
                       <button
                         type="button"
