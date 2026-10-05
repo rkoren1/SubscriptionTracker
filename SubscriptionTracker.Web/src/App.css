@@ -101,6 +101,7 @@ h1 {
 .content-grid {
   display: grid;
   grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  align-items: stretch;
   gap: 24px;
 }
 
@@ -108,10 +109,15 @@ h1 {
   padding: 22px;
 }
 
+.list-panel {
+  position: relative;
+}
+
 .panel h2 {
   margin-bottom: 18px;
   color: #f8fafc;
   font-size: 1.3rem;
+  flex: 0 0 auto;
 }
 
 .subscription-form {
@@ -233,6 +239,11 @@ select:focus {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  position: absolute;
+  inset: 66px 22px 22px;
 }
 
 .subscription-card {
@@ -318,5 +329,16 @@ select:focus {
 
   .topbar-actions {
     width: 100%;
+  }
+
+  .list-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: min(70vh, 720px);
+  }
+
+  .subscription-list {
+    position: static;
   }
 }
