@@ -1,28 +1,47 @@
+import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import './AuthPage.css';
+import type { AuthUser } from './types';
+
+type AuthMode = 'login' | 'register';
+
+interface AuthPageProps {
+  onAuthenticated: (user: AuthUser) => Promise<void>;
+}
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5283';
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-async function readResponse(response) {
-  const data = await response.json().catch(() => ({}));
+async function readResponse<T>(response: Response): Promise<T> {
+  const data: unknown = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(
-      data.message ?? data.title ?? 'Unable to sign in. Please try again.',
-    );
+    const errorData = data as { message?: unknown; title?: unknown };
+    const message =
+      typeof errorData.message === 'string'
+        ? errorData.message
+        : typeof errorData.title === 'string'
+          ? errorData.title
+          : 'Unable to sign in. Please try again.';
+    throw new Error(message);
   }
-  return data;
+  return data as T;
 }
 
-function AuthPage({ onAuthenticated }) {
-  const [mode, setMode] = useState('login');
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error
+    ? error.message
+    : 'Unable to sign in. Please try again.';
+}
+
+function AuthPage({ onAuthenticated }: AuthPageProps) {
+  const [mode, setMode] = useState<AuthMode>('login');
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const googleButtonRef = useRef(null);
+  const googleButtonRef = useRef<HTMLDivElement | null>(null);
   const onAuthenticatedRef = useRef(onAuthenticated);
 
   useEffect(() => {
@@ -33,12 +52,13 @@ function AuthPage({ onAuthenticated }) {
     if (!GOOGLE_CLIENT_ID || !googleButtonRef.current) return undefined;
 
     let cancelled = false;
-    const renderButton = () => {
-      if (cancelled || !window.google?.accounts?.id || !googleButtonRef.current)
-        return;
+    const renderButton = (): void => {
+      const googleIdentity = window.google?.accounts?.id;
+      const buttonContainer = googleButtonRef.current;
+      if (cancelled || !googleIdentity || !buttonContainer) return;
 
-      googleButtonRef.current.replaceChildren();
-      window.google.accounts.id.initialize({
+      buttonContainer.replaceChildren();
+      googleIdentity.initialize({
         client_id: GOOGLE_CLIENT_ID,
         callback: async ({ credential }) => {
           setError('');
@@ -50,21 +70,21 @@ function AuthPage({ onAuthenticated }) {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ credential }),
             });
-            const user = await readResponse(response);
+            const user = await readResponse<AuthUser>(response);
             await onAuthenticatedRef.current(user);
-          } catch (authError) {
-            setError(authError.message);
+          } catch (authError: unknown) {
+            setError(getErrorMessage(authError));
           } finally {
             setIsSubmitting(false);
           }
         },
       });
-      window.google.accounts.id.renderButton(googleButtonRef.current, {
+      googleIdentity.renderButton(buttonContainer, {
         theme: 'outline',
         size: 'large',
         shape: 'rectangular',
         text: 'continue_with',
-        width: Math.min(360, googleButtonRef.current.clientWidth || 360),
+        width: Math.min(360, buttonContainer.clientWidth || 360),
       });
     };
 
@@ -97,7 +117,9 @@ function AuthPage({ onAuthenticated }) {
     };
   }, []);
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (
+    event: FormEvent<HTMLFormElement>,
+  ): Promise<void> => {
     event.preventDefault();
     setError('');
 
@@ -118,20 +140,40 @@ function AuthPage({ onAuthenticated }) {
           ...(mode === 'register' ? { displayName } : {}),
         }),
       });
-      const user = await readResponse(response);
+      const user = await readResponse<AuthUser>(response);
       await onAuthenticated(user);
-    } catch (authError) {
-      setError(authError.message);
+    } catch (authError: unknown) {
+      setError(getErrorMessage(authError));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const changeMode = (nextMode) => {
+  const changeMode = (nextMode: AuthMode): void => {
     setMode(nextMode);
     setError('');
     setPassword('');
     setConfirmPassword('');
+  };
+
+  const handleDisplayNameChange = (
+    event: ChangeEvent<HTMLInputElement>,
+  ): void => {
+    setDisplayName(event.currentTarget.value);
+  };
+
+  const handleEmailChange = (event: ChangeEvent<HTMLInputElement>): void => {
+    setEmail(event.currentTarget.value);
+  };
+
+  const handlePasswordChange = (event: ChangeEvent<HTMLInputElement>): void => {
+    setPassword(event.currentTarget.value);
+  };
+
+  const handleConfirmPasswordChange = (
+    event: ChangeEvent<HTMLInputElement>,
+  ): void => {
+    setConfirmPassword(event.currentTarget.value);
   };
 
   return (
@@ -208,7 +250,7 @@ function AuthPage({ onAuthenticated }) {
                 <input
                   autoComplete="name"
                   value={displayName}
-                  onChange={(event) => setDisplayName(event.target.value)}
+                  onChange={handleDisplayNameChange}
                   maxLength={100}
                   required
                 />
@@ -220,7 +262,7 @@ function AuthPage({ onAuthenticated }) {
                 type="email"
                 autoComplete="email"
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={handleEmailChange}
                 maxLength={256}
                 required
               />
@@ -233,7 +275,7 @@ function AuthPage({ onAuthenticated }) {
                   mode === 'login' ? 'current-password' : 'new-password'
                 }
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={handlePasswordChange}
                 minLength={8}
                 maxLength={128}
                 required
@@ -246,7 +288,7 @@ function AuthPage({ onAuthenticated }) {
                   type="password"
                   autoComplete="new-password"
                   value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  onChange={handleConfirmPasswordChange}
                   minLength={8}
                   maxLength={128}
                   required

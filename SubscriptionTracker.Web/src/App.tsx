@@ -1,25 +1,49 @@
+import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import './App.css';
-import AuthPage from './AuthPage.jsx';
+import AuthPage from './AuthPage';
+import type {
+  AuthUser,
+  BillingCycle,
+  Subscription,
+  SubscriptionForm,
+  SubscriptionRequest,
+} from './types';
 
-const emptyForm = {
+const emptyForm: SubscriptionForm = {
   id: '',
   name: '',
   category: 'Entertainment',
   price: '9.99',
   currency: 'USD',
-  billingCycle: 'Monthly',
+  billingCycle: 1,
   nextBillingDate: new Date().toISOString().slice(0, 10),
   isActive: true,
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5283';
+const annualMultipliers: Record<BillingCycle, number> = {
+  0: 52,
+  1: 12,
+  2: 4,
+  3: 1,
+};
+const monthlyMultipliers: Record<BillingCycle, number> = {
+  0: 4.333,
+  1: 1,
+  2: 1 / 3,
+  3: 1 / 12,
+};
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
 
 function App() {
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
-  const [subscriptions, setSubscriptions] = useState([]);
-  const [form, setForm] = useState(emptyForm);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [form, setForm] = useState<SubscriptionForm>(emptyForm);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -31,31 +55,18 @@ function App() {
       (subscription) => subscription.isActive,
     );
 
-    const yearlyTotal = activeSubscriptions.reduce((sum, item) => {
-      const multiplier =
-        item.billingCycle === 'Weekly'
-          ? 52
-          : item.billingCycle === 'Monthly'
-            ? 12
-            : item.billingCycle === 'Quarterly'
-              ? 4
-              : 1;
+    const yearlyTotal = activeSubscriptions.reduce(
+      (sum, subscription) =>
+        sum + subscription.price * annualMultipliers[subscription.billingCycle],
+      0,
+    );
 
-      return sum + Number(item.price) * multiplier;
-    }, 0);
-
-    const estimatedMonthlySpend = activeSubscriptions.reduce((sum, item) => {
-      const monthlyEquivalent =
-        item.billingCycle === 'Weekly'
-          ? Number(item.price) * 4.333
-          : item.billingCycle === 'Quarterly'
-            ? Number(item.price) / 3
-            : item.billingCycle === 'Yearly'
-              ? Number(item.price) / 12
-              : Number(item.price);
-
-      return sum + monthlyEquivalent;
-    }, 0);
+    const estimatedMonthlySpend = activeSubscriptions.reduce(
+      (sum, subscription) =>
+        sum +
+        subscription.price * monthlyMultipliers[subscription.billingCycle],
+      0,
+    );
 
     return {
       activeCount: activeSubscriptions.length,
@@ -64,7 +75,7 @@ function App() {
     };
   }, [subscriptions]);
 
-  const fetchSubscriptions = async () => {
+  const fetchSubscriptions = async (): Promise<void> => {
     try {
       setIsLoading(true);
       const response = await fetch(`${API_BASE_URL}/api/subscriptions`, {
@@ -75,10 +86,10 @@ function App() {
         throw new Error('Unable to load subscriptions');
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as Subscription[];
       setSubscriptions(data);
-    } catch (loadError) {
-      setError(loadError.message);
+    } catch (loadError: unknown) {
+      setError(errorMessage(loadError, 'Unable to load subscriptions'));
     } finally {
       setIsLoading(false);
     }
@@ -87,31 +98,31 @@ function App() {
   useEffect(() => {
     let cancelled = false;
 
-    const restoreSession = async () => {
+    const restoreSession = async (): Promise<void> => {
       try {
         const sessionResponse = await fetch(`${API_BASE_URL}/api/auth/me`, {
           credentials: 'include',
         });
         if (!sessionResponse.ok) return;
 
-        const user = await sessionResponse.json();
+        const user = (await sessionResponse.json()) as AuthUser;
         if (cancelled) return;
         setCurrentUser(user);
 
         const subscriptionResponse = await fetch(
           `${API_BASE_URL}/api/subscriptions`,
-          {
-            credentials: 'include',
-          },
+          { credentials: 'include' },
         );
         if (!subscriptionResponse.ok) {
           throw new Error('Unable to load subscriptions.');
         }
 
-        const data = await subscriptionResponse.json();
+        const data = (await subscriptionResponse.json()) as Subscription[];
         if (!cancelled) setSubscriptions(data);
-      } catch (loadError) {
-        if (!cancelled) setError(loadError.message);
+      } catch (loadError: unknown) {
+        if (!cancelled) {
+          setError(errorMessage(loadError, 'Unable to restore your session.'));
+        }
       } finally {
         if (!cancelled) {
           setIsLoading(false);
@@ -126,64 +137,85 @@ function App() {
     };
   }, []);
 
-  const handleAuthenticated = async (user) => {
+  const handleAuthenticated = async (user: AuthUser): Promise<void> => {
     setCurrentUser(user);
     setError('');
     setSuccess('');
     await fetchSubscriptions();
   };
 
-  const handleLogout = async () => {
+  const handleLogout = async (): Promise<void> => {
     await fetch(`${API_BASE_URL}/api/auth/logout`, {
       method: 'POST',
       credentials: 'include',
-    }).catch(() => {});
+    }).catch(() => undefined);
     setCurrentUser(null);
     setSubscriptions([]);
     resetForm();
   };
 
-  const handleChange = (event) => {
-    const { name, value, type, checked } = event.target;
-    setForm((previous) => ({
-      ...previous,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
+  const handleChange = (
+    event: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ): void => {
+    const target = event.currentTarget;
+    let value: string | boolean | BillingCycle;
+
+    if (target.name === 'billingCycle') {
+      value = Number(target.value) as BillingCycle;
+    } else if (
+      target instanceof HTMLInputElement &&
+      target.type === 'checkbox'
+    ) {
+      value = target.checked;
+    } else {
+      value = target.value;
+    }
+
+    setForm(
+      (previous) =>
+        ({
+          ...previous,
+          [target.name]: value,
+        }) as SubscriptionForm,
+    );
   };
 
-  const resetForm = () => {
+  const resetForm = (): void => {
     setForm(emptyForm);
     setIsEditing(false);
     setError('');
     setSuccess('');
   };
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (
+    event: FormEvent<HTMLFormElement>,
+  ): Promise<void> => {
     event.preventDefault();
     setIsSubmitting(true);
     setError('');
     setSuccess('');
 
-    const payload = {
-      ...form,
+    const payload: SubscriptionRequest = {
+      name: form.name,
+      category: form.category,
       price: Number(form.price),
+      currency: form.currency,
+      billingCycle: form.billingCycle,
       nextBillingDate: form.nextBillingDate,
       isActive: form.isActive,
-      billingCycle: form.billingCycle,
     };
 
+    const path = isEditing
+      ? `/api/subscriptions/${form.id}`
+      : '/api/subscriptions';
+
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/subscriptions${isEditing ? `/${form.id}` : ''}`,
-        {
-          method: isEditing ? 'PUT' : 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        },
-      );
+      const response = await fetch(`${API_BASE_URL}${path}`, {
+        method: isEditing ? 'PUT' : 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
       if (!response.ok) {
         const message = await response.text();
@@ -197,14 +229,14 @@ function App() {
           ? 'Subscription updated successfully.'
           : 'Subscription added successfully.',
       );
-    } catch (submitError) {
-      setError(submitError.message);
+    } catch (submitError: unknown) {
+      setError(errorMessage(submitError, 'The operation failed.'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleEdit = (subscription) => {
+  const handleEdit = (subscription: Subscription): void => {
     setForm({
       id: subscription.id,
       name: subscription.name,
@@ -220,7 +252,7 @@ function App() {
     setSuccess('');
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string): Promise<void> => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/subscriptions/${id}`, {
         method: 'DELETE',
@@ -236,8 +268,8 @@ function App() {
         resetForm();
       }
       setSuccess('Subscription removed.');
-    } catch (deleteError) {
-      setError(deleteError.message);
+    } catch (deleteError: unknown) {
+      setError(errorMessage(deleteError, 'Unable to delete subscription'));
     }
   };
 
@@ -347,10 +379,10 @@ function App() {
                   value={form.billingCycle}
                   onChange={handleChange}
                 >
-                  <option value="Weekly">Weekly</option>
-                  <option value="Monthly">Monthly</option>
-                  <option value="Quarterly">Quarterly</option>
-                  <option value="Yearly">Yearly</option>
+                  <option value={0}>Weekly</option>
+                  <option value={1}>Monthly</option>
+                  <option value={2}>Quarterly</option>
+                  <option value={3}>Yearly</option>
                 </select>
               </label>
             </div>
@@ -431,10 +463,15 @@ function App() {
 
                   <div className="subscription-meta">
                     <strong>
-                      {subscription.currency}{' '}
-                      {Number(subscription.price).toFixed(2)}
+                      {subscription.currency} {subscription.price.toFixed(2)}
                     </strong>
-                    <span>{subscription.billingCycle}</span>
+                    <span>
+                      {
+                        ['Weekly', 'Monthly', 'Quarterly', 'Yearly'][
+                          subscription.billingCycle
+                        ]
+                      }
+                    </span>
                   </div>
 
                   <div className="subscription-footer">

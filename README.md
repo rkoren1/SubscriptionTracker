@@ -4,7 +4,7 @@ A fullstack subscription management app built with:
 
 - .NET 10 Web API
 - EF Core with PostgreSQL
-- React + Vite frontend
+- React + Vite + TypeScript frontend
 
 ## Prerequisites
 
@@ -76,4 +76,5 @@ The app includes a `Subscription` entity with annual cost calculation and a Post
 ```bash
 dotnet test SubscriptionTracker.Tests/SubscriptionTracker.Tests.csproj
 cd SubscriptionTracker.Web && npm run build
+cd SubscriptionTracker.Web && npm run typecheck
 ```
