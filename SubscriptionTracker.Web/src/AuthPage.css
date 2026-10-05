@@ -1,0 +1,383 @@
+.auth-screen {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(340px, 0.92fr) minmax(420px, 1.08fr);
+  background: #f2f2eb;
+  color: #152c29;
+}
+
+.auth-brand {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: 42px clamp(32px, 6vw, 88px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #f2f2eb;
+  background-color: #153d39;
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0,
+    transparent 38px,
+    rgba(225, 237, 220, 0.045) 39px,
+    rgba(225, 237, 220, 0.045) 40px
+  );
+}
+
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.15;
+}
+
+.brand-symbol {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(242, 242, 235, 0.55);
+  color: #f4b469;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 24px;
+}
+
+.brand-message {
+  position: relative;
+  z-index: 1;
+  margin: auto 0;
+  padding: 70px 0 92px;
+}
+
+.brand-kicker,
+.auth-kicker {
+  display: block;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.16em;
+}
+
+.brand-kicker {
+  margin-bottom: 24px;
+  color: #edb66f;
+}
+
+.brand-message h1 {
+  margin: 0;
+  color: #f2f2eb;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(44px, 5vw, 70px);
+  font-weight: 400;
+  line-height: 0.99;
+}
+
+.brand-rule {
+  width: 48px;
+  height: 2px;
+  margin: 28px 0 14px;
+  background: #edb66f;
+}
+
+.brand-message p {
+  color: rgba(242, 242, 235, 0.68);
+  font-size: 13px;
+}
+
+.brand-orbit {
+  position: absolute;
+  right: 10%;
+  bottom: 15%;
+  width: 190px;
+  height: 130px;
+  opacity: 0.72;
+}
+
+.orbit-line {
+  position: absolute;
+  right: 0;
+  bottom: 14px;
+  width: 180px;
+  height: 72px;
+  border: 1px solid rgba(234, 181, 110, 0.48);
+  transform: skewY(-20deg) rotate(-12deg);
+}
+
+.orbit-line-two {
+  right: 18px;
+  bottom: 34px;
+  width: 150px;
+  height: 56px;
+  border-color: rgba(242, 242, 235, 0.36);
+}
+
+.orbit-dot {
+  position: absolute;
+  top: 20px;
+  right: 31px;
+  width: 9px;
+  height: 9px;
+  background: #edb66f;
+  transform: rotate(45deg);
+}
+
+.orbit-caption {
+  position: absolute;
+  right: 1px;
+  bottom: 0;
+  color: rgba(242, 242, 235, 0.66);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+
+.brand-footer {
+  color: rgba(242, 242, 235, 0.58);
+  font-size: 11px;
+}
+
+.auth-panel {
+  display: grid;
+  place-items: center;
+  padding: 48px clamp(24px, 6vw, 96px);
+}
+
+.auth-panel-inner {
+  width: min(100%, 420px);
+}
+
+.auth-heading {
+  margin-bottom: 28px;
+}
+
+.auth-kicker {
+  margin-bottom: 12px;
+  color: #567c70;
+}
+
+.auth-heading h2 {
+  margin: 0 0 8px;
+  color: #152c29;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 36px;
+  font-weight: 400;
+  line-height: 1.1;
+}
+
+.auth-heading p {
+  color: #66736e;
+  font-size: 14px;
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid #d6dcd3;
+  margin-bottom: 24px;
+}
+
+.auth-tabs button {
+  position: relative;
+  padding: 12px 8px;
+  border: 0;
+  background: transparent;
+  color: #78817d;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.auth-tabs button.selected {
+  color: #153d39;
+}
+
+.auth-tabs button.selected::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: #d48945;
+  content: '';
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-form label {
+  gap: 7px;
+  color: #354641;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.auth-form input {
+  min-height: 46px;
+  border: 1px solid #cbd3ca;
+  border-radius: 3px;
+  background: #fbfbf6;
+  color: #152c29;
+  padding: 11px 12px;
+  font-size: 14px;
+}
+
+.auth-form input:focus {
+  border-color: #567c70;
+  outline: 2px solid rgba(86, 124, 112, 0.18);
+}
+
+.auth-error {
+  padding: 10px 12px;
+  border-left: 3px solid #b84d3d;
+  background: #f8e8e3;
+  color: #8c352d;
+  font-size: 12px;
+}
+
+.auth-submit {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  border: 0;
+  border-radius: 3px;
+  background: #153d39;
+  color: #f5f4eb;
+  cursor: pointer;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 700;
+  transition: background 160ms ease;
+}
+
+.auth-submit:hover:not(:disabled) {
+  background: #23574f;
+}
+
+.auth-submit:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.auth-submit span {
+  color: #edb66f;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0 18px;
+  color: #8a938d;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  height: 1px;
+  flex: 1;
+  background: #d6dcd3;
+  content: '';
+}
+
+.google-button,
+.google-unavailable {
+  min-height: 44px;
+  display: flex;
+  justify-content: center;
+}
+
+.google-button > div {
+  max-width: 100%;
+}
+
+.google-unavailable {
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.google-unavailable button {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid #cbd3ca;
+  border-radius: 3px;
+  background: #f7f7f1;
+  color: #4a5752;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.google-unavailable button:disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.google-g {
+  color: #4285f4;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.google-unavailable small {
+  color: #78817d;
+  font-size: 10px;
+}
+
+.auth-legal {
+  margin-top: 22px;
+  color: #818a84;
+  font-size: 10px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .auth-screen {
+    min-height: 100svh;
+    grid-template-columns: 1fr;
+  }
+
+  .auth-brand {
+    min-height: 190px;
+    padding: 22px 24px;
+  }
+
+  .brand-message {
+    margin: 32px 0 8px;
+    padding: 0;
+  }
+
+  .brand-kicker {
+    margin-bottom: 10px;
+  }
+
+  .brand-message h1 {
+    font-size: 38px;
+  }
+
+  .brand-rule,
+  .brand-message p,
+  .brand-orbit,
+  .brand-footer {
+    display: none;
+  }
+
+  .auth-panel {
+    padding: 36px 24px 48px;
+  }
+}

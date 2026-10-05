@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import './App.css';
+import AuthPage from './AuthPage.jsx';
 
 const emptyForm = {
   id: '',
@@ -15,6 +16,8 @@ const emptyForm = {
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5283';
 
 function App() {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [subscriptions, setSubscriptions] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [isLoading, setIsLoading] = useState(true);
@@ -64,7 +67,9 @@ function App() {
   const fetchSubscriptions = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/subscriptions`);
+      const response = await fetch(`${API_BASE_URL}/api/subscriptions`, {
+        credentials: 'include',
+      });
 
       if (!response.ok) {
         throw new Error('Unable to load subscriptions');
@@ -80,8 +85,63 @@ function App() {
   };
 
   useEffect(() => {
-    fetchSubscriptions();
+    let cancelled = false;
+
+    const restoreSession = async () => {
+      try {
+        const sessionResponse = await fetch(`${API_BASE_URL}/api/auth/me`, {
+          credentials: 'include',
+        });
+        if (!sessionResponse.ok) return;
+
+        const user = await sessionResponse.json();
+        if (cancelled) return;
+        setCurrentUser(user);
+
+        const subscriptionResponse = await fetch(
+          `${API_BASE_URL}/api/subscriptions`,
+          {
+            credentials: 'include',
+          },
+        );
+        if (!subscriptionResponse.ok) {
+          throw new Error('Unable to load subscriptions.');
+        }
+
+        const data = await subscriptionResponse.json();
+        if (!cancelled) setSubscriptions(data);
+      } catch (loadError) {
+        if (!cancelled) setError(loadError.message);
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+          setIsCheckingSession(false);
+        }
+      }
+    };
+
+    void restoreSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const handleAuthenticated = async (user) => {
+    setCurrentUser(user);
+    setError('');
+    setSuccess('');
+    await fetchSubscriptions();
+  };
+
+  const handleLogout = async () => {
+    await fetch(`${API_BASE_URL}/api/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    }).catch(() => {});
+    setCurrentUser(null);
+    setSubscriptions([]);
+    resetForm();
+  };
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
@@ -117,6 +177,7 @@ function App() {
         `${API_BASE_URL}/api/subscriptions${isEditing ? `/${form.id}` : ''}`,
         {
           method: isEditing ? 'PUT' : 'POST',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
           },
@@ -163,6 +224,7 @@ function App() {
     try {
       const response = await fetch(`${API_BASE_URL}/api/subscriptions/${id}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -179,6 +241,18 @@ function App() {
     }
   };
 
+  if (isCheckingSession) {
+    return (
+      <main className="auth-loading" aria-label="Loading account">
+        Loading...
+      </main>
+    );
+  }
+
+  if (!currentUser) {
+    return <AuthPage onAuthenticated={handleAuthenticated} />;
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -186,9 +260,15 @@ function App() {
           <p className="eyebrow">Overview</p>
           <h1>Subscription Tracker</h1>
         </div>
-        <button type="button" className="ghost-button" onClick={resetForm}>
-          New subscription
-        </button>
+        <div className="topbar-actions">
+          <span className="user-greeting">{currentUser.displayName}</span>
+          <button type="button" className="ghost-button" onClick={resetForm}>
+            New subscription
+          </button>
+          <button type="button" className="ghost-button" onClick={handleLogout}>
+            Sign out
+          </button>
+        </div>
       </header>
 
       <section className="summary-grid">

@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SubscriptionTracker.Api.Data;
@@ -6,6 +8,7 @@ using SubscriptionTracker.Api.Models;
 namespace SubscriptionTracker.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class SubscriptionsController : ControllerBase
 {
@@ -20,6 +23,7 @@ public class SubscriptionsController : ControllerBase
     public async Task<ActionResult<IEnumerable<Subscription>>> GetSubscriptions()
     {
         var subscriptions = await _context.Subscriptions
+            .Where(x => x.UserId == CurrentUserId)
             .OrderBy(x => x.Name)
             .ToListAsync();
 
@@ -29,7 +33,8 @@ public class SubscriptionsController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<Subscription>> GetSubscription(Guid id)
     {
-        var subscription = await _context.Subscriptions.FindAsync(id);
+        var subscription = await _context.Subscriptions
+            .SingleOrDefaultAsync(x => x.Id == id && x.UserId == CurrentUserId);
 
         if (subscription is null)
         {
@@ -48,6 +53,7 @@ public class SubscriptionsController : ControllerBase
         }
 
         subscription.Id = Guid.NewGuid();
+        subscription.UserId = CurrentUserId;
         subscription.CreatedAt = DateTime.UtcNow;
         subscription.UpdatedAt = DateTime.UtcNow;
 
@@ -65,7 +71,8 @@ public class SubscriptionsController : ControllerBase
             return BadRequest();
         }
 
-        var existingSubscription = await _context.Subscriptions.FindAsync(id);
+        var existingSubscription = await _context.Subscriptions
+            .SingleOrDefaultAsync(x => x.Id == id && x.UserId == CurrentUserId);
         if (existingSubscription is null)
         {
             return NotFound();
@@ -88,7 +95,8 @@ public class SubscriptionsController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteSubscription(Guid id)
     {
-        var subscription = await _context.Subscriptions.FindAsync(id);
+        var subscription = await _context.Subscriptions
+            .SingleOrDefaultAsync(x => x.Id == id && x.UserId == CurrentUserId);
         if (subscription is null)
         {
             return NotFound();
@@ -99,4 +107,6 @@ public class SubscriptionsController : ControllerBase
 
         return NoContent();
     }
+
+    private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }

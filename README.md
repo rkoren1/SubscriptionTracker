@@ -37,6 +37,7 @@ dotnet run
 ```
 
 The API will listen on `http://localhost:5283` and uses the PostgreSQL connection string in `SubscriptionTracker.Api/appsettings.json`.
+The development environment uses a local-only JWT signing key. Configure `Jwt__SigningKey` with a strong value before deploying outside development.
 
 ## Run the frontend
 
@@ -50,6 +51,19 @@ Then open:
 
 - Frontend: `http://localhost:5173`
 - API health: `http://localhost:5283/health`
+
+## Accounts and Google sign-in
+
+The app supports email/password registration and login. Subscription endpoints require a signed-in user, and each account only sees its own records. Database migrations, including the Identity user tables, are applied when the API starts.
+
+Google sign-in requires a Google OAuth Web client ID. In Google Cloud Console, add `http://localhost:5173` as an authorized JavaScript origin. Copy `SubscriptionTracker.Web/.env.example` to `.env.local` and set `VITE_GOOGLE_CLIENT_ID` to that client ID. Start the API with the same ID configured:
+
+```powershell
+$env:Authentication__Google__ClientId = "your-google-client-id"
+dotnet run --project SubscriptionTracker.Api
+```
+
+The Google client ID is public, but it must match on both sides. Without it, email/password accounts remain available and the Google button shows that setup is needed.
 
 ## Model and storage
 
