@@ -41,7 +41,7 @@ The API will listen on `http://localhost:5283` and uses the PostgreSQL connectio
 ## Run the frontend
 
 ```bash
-cd frontend
+cd SubscriptionTracker.Web
 npm install
 npm run dev -- --host 0.0.0.0
 ```
@@ -61,5 +61,5 @@ The app includes a `Subscription` entity with annual cost calculation and a Post
 
 ```bash
 dotnet test SubscriptionTracker.Tests/SubscriptionTracker.Tests.csproj
-cd frontend && npm run build
+cd SubscriptionTracker.Web && npm run build
 ```
