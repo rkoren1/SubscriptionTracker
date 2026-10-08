@@ -1,73 +1,62 @@
+import { NavLink } from 'react-router-dom';
 import type { AuthUser } from '../types';
 import './TopBar.css';
 
-type ViewMode = 'overview' | 'chart';
-
 interface TopBarProps {
-  activeView: ViewMode;
-  currentUser: AuthUser | null;
-  onViewChange: (view: ViewMode) => void;
-  onLogout: () => void;
-  onOpenAuth: () => void;
-  onNewSubscription: () => void;
+  readonly currentUser: AuthUser | null;
+  readonly onLogout: () => void;
 }
 
-export default function TopBar({
-  activeView,
-  currentUser,
-  onViewChange,
-  onLogout,
-  onOpenAuth,
-  onNewSubscription,
-}: TopBarProps) {
+const navigationItems = [
+  { to: '/overview', label: 'Overview' },
+  { to: '/chart', label: 'Spending chart' },
+  { to: '/new-subscription', label: 'New subscription' },
+];
+
+export default function TopBar({ currentUser, onLogout }: TopBarProps) {
   return (
     <header className="topbar">
-      <div>
-        <p className="eyebrow">
-          {activeView === 'overview' ? 'Overview' : 'Spending trends'}
-        </p>
-        <h1>Subscription Tracker</h1>
+      <div className="brand-block">
+        <span className="brand-mark" aria-hidden="true">
+          S
+        </span>
+        <div>
+          <p className="eyebrow">Personal finance</p>
+          <h1>Subscription Tracker</h1>
+        </div>
       </div>
-      <div className="topbar-actions">
+
+      <nav className="main-navigation" aria-label="Main navigation">
+        {navigationItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) =>
+              isActive ? 'nav-link active' : 'nav-link'
+            }
+          >
+            <span className="nav-icon" aria-hidden="true">
+              {item.label.charAt(0)}
+            </span>
+            <span>{item.label}</span>
+          </NavLink>
+        ))}
+      </nav>
+
+      <div className="sidebar-footer">
         <span className="user-greeting">
           {currentUser ? currentUser.displayName : 'Saved on this device'}
         </span>
-        <div className="view-switcher" aria-label="Page view selector">
-          <button
-            type="button"
-            className={
-              activeView === 'overview' ? 'view-button active' : 'view-button'
-            }
-            onClick={() => onViewChange('overview')}
-          >
-            Overview
-          </button>
-          <button
-            type="button"
-            className={
-              activeView === 'chart' ? 'view-button active' : 'view-button'
-            }
-            onClick={() => onViewChange('chart')}
-          >
-            Spending chart
-          </button>
-        </div>
+
         {currentUser ? (
           <button type="button" className="ghost-button" onClick={onLogout}>
             Sign out
           </button>
         ) : (
-          <button type="button" className="ghost-button" onClick={onOpenAuth}>
-            Sign in to sync
-          </button>
+          <NavLink to="/sign-in" className="ghost-button">
+            Sign in
+          </NavLink>
         )}
-        <button
-          type="button"
-          className="ghost-button"
-          onClick={onNewSubscription}
-        >
-          New subscription
-        </button>
       </div>
     </header>
   );

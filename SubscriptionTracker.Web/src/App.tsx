@@ -1,5 +1,6 @@
 import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import './App.css';
 import AuthPage from './AuthPage';
 import SpendingChart, {
@@ -28,8 +29,6 @@ const emptyForm: SubscriptionFormState = {
   endDate: '',
   isActive: true,
 };
-
-type ViewMode = 'overview' | 'chart';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5283';
 const LOCAL_STORAGE_KEY = 'subscription-tracker-subscriptions';
@@ -190,9 +189,8 @@ function App() {
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [isShowingAuth, setIsShowingAuth] = useState(false);
-  const [activeView, setActiveView] = useState<ViewMode>('overview');
   const [selectedMonthIndex, setSelectedMonthIndex] = useState(0);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!isCheckingSession && !currentUser) {
@@ -307,7 +305,7 @@ function App() {
     setError('');
     setSuccess('');
     await fetchSubscriptions();
-    setIsShowingAuth(false);
+    void navigate('/overview', { replace: true });
   };
 
   const handleLogout = async (): Promise<void> => {
@@ -470,57 +468,84 @@ function App() {
     }
   };
 
-  if (isShowingAuth) {
-    return (
-      <AuthPage
-        onAuthenticated={handleAuthenticated}
-        onContinueWithoutAccount={() => setIsShowingAuth(false)}
-      />
-    );
-  }
-
   return (
     <div className="app-shell">
-      <TopBar
-        activeView={activeView}
-        currentUser={currentUser}
-        onViewChange={setActiveView}
-        onLogout={handleLogout}
-        onOpenAuth={() => setIsShowingAuth(true)}
-        onNewSubscription={resetForm}
-      />
+      <aside className="app-sidebar">
+        <TopBar currentUser={currentUser} onLogout={handleLogout} />
+      </aside>
 
-      {activeView === 'overview' ? (
-        <>
-          <SummaryCards summary={summary} />
+      <main className="app-content">
+        <Routes>
+          <Route path="/" element={<Navigate to="/overview" replace />} />
+          <Route
+            path="/overview"
+            element={
+              <>
+                <SummaryCards summary={summary} />
 
-          <main className="content-grid">
-            <SubscriptionForm
-              form={form}
-              isEditing={isEditing}
-              isSubmitting={isSubmitting}
-              error={error}
-              success={success}
-              onChange={handleChange}
-              onSubmit={handleSubmit}
-              onCancel={resetForm}
-            />
+                <div className="content-grid">
+                  <SubscriptionForm
+                    form={form}
+                    isEditing={isEditing}
+                    isSubmitting={isSubmitting}
+                    error={error}
+                    success={success}
+                    onChange={handleChange}
+                    onSubmit={handleSubmit}
+                    onCancel={resetForm}
+                  />
 
-            <SubscriptionList
-              subscriptions={subscriptions}
-              isLoading={isLoading}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
-          </main>
-        </>
-      ) : (
-        <SpendingChart
-          chartData={chartData}
-          selectedMonthIndex={selectedMonthIndex}
-          onSelectMonth={setSelectedMonthIndex}
-        />
-      )}
+                  <SubscriptionList
+                    subscriptions={subscriptions}
+                    isLoading={isLoading}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                  />
+                </div>
+              </>
+            }
+          />
+          <Route
+            path="/chart"
+            element={
+              <SpendingChart
+                chartData={chartData}
+                selectedMonthIndex={selectedMonthIndex}
+                onSelectMonth={setSelectedMonthIndex}
+              />
+            }
+          />
+          <Route
+            path="/new-subscription"
+            element={
+              <div className="new-subscription-page">
+                <SubscriptionForm
+                  form={form}
+                  isEditing={isEditing}
+                  isSubmitting={isSubmitting}
+                  error={error}
+                  success={success}
+                  onChange={handleChange}
+                  onSubmit={handleSubmit}
+                  onCancel={resetForm}
+                />
+              </div>
+            }
+          />
+          <Route
+            path="/sign-in"
+            element={
+              <AuthPage
+                onAuthenticated={handleAuthenticated}
+                onContinueWithoutAccount={() =>
+                  navigate('/overview', { replace: true })
+                }
+              />
+            }
+          />
+          <Route path="*" element={<Navigate to="/overview" replace />} />
+        </Routes>
+      </main>
     </div>
   );
 }
