@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
@@ -15,10 +14,11 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+);
 
-builder.Services
-    .AddIdentityCore<AppUser>(options =>
+builder
+    .Services.AddIdentityCore<AppUser>(options =>
     {
         options.User.RequireUniqueEmail = true;
         options.Password.RequiredLength = 8;
@@ -35,21 +35,17 @@ builder.Services
 var jwtSigningKey = builder.Configuration["Jwt:SigningKey"];
 if (string.IsNullOrWhiteSpace(jwtSigningKey))
 {
-    if (!builder.Environment.IsDevelopment())
-    {
-        throw new InvalidOperationException("Jwt:SigningKey must be configured outside development.");
-    }
-
-    jwtSigningKey = "SubscriptionTracker-LOCAL-ONLY-signing-key-change-before-deploy-2026";
+    throw new InvalidOperationException("Jwt:SigningKey must be configured.");
 }
+
 if (Encoding.UTF8.GetByteCount(jwtSigningKey) < 32)
 {
     throw new InvalidOperationException("Jwt:SigningKey must be at least 32 bytes long.");
 }
 
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSigningKey));
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+builder
+    .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters
@@ -62,32 +58,46 @@ builder.Services
             IssuerSigningKey = signingKey,
             ValidateLifetime = true,
             NameClaimType = ClaimTypes.NameIdentifier,
-            ClockSkew = TimeSpan.FromSeconds(30)
+            ClockSkew = TimeSpan.FromSeconds(30),
         };
         options.Events = new JwtBearerEvents
         {
             OnMessageReceived = context =>
             {
-                if (context.Request.Cookies.TryGetValue(AuthController.SessionCookieName, out var token))
+                if (
+                    context.Request.Cookies.TryGetValue(
+                        AuthController.SessionCookieName,
+                        out var token
+                    )
+                )
                 {
                     context.Token = token;
                 }
 
                 return Task.CompletedTask;
-            }
+            },
         };
     });
 builder.Services.AddAuthorization();
 
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("FrontendPolicy", policy =>
-    {
-        policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
-    });
+    options.AddPolicy(
+        "FrontendPolicy",
+        policy =>
+        {
+            if (allowedOrigins.Length > 0)
+            {
+                policy
+                    .WithOrigins(allowedOrigins)
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials();
+            }
+        }
+    );
 });
 
 var app = builder.Build();

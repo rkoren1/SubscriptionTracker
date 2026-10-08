@@ -12,7 +12,7 @@ interface AuthPageProps {
   onContinueWithoutAccount: () => void;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5283';
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'https://localhost:7121/';
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 async function readResponse<T>(response: Response): Promise<T> {
