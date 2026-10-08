@@ -30,7 +30,7 @@ const emptyForm: SubscriptionFormState = {
   isActive: true,
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'https://localhost:7121/';
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'https://localhost:7121';
 const LOCAL_STORAGE_KEY = 'subscription-tracker-subscriptions';
 const annualMultipliers: Record<BillingCycle, number> = {
   0: 52,
