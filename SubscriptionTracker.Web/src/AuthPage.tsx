@@ -1,5 +1,6 @@
 import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import GoogleLogo from './assets/google-logo.svg';
 import './AuthPage.css';
 import type { AuthUser } from './types';
 
@@ -45,7 +46,7 @@ function AuthPage({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const googleButtonRef = useRef<HTMLDivElement | null>(null);
+  const googleButtonRef = useRef<HTMLButtonElement | null>(null);
   const onAuthenticatedRef = useRef(onAuthenticated);
 
   useEffect(() => {
@@ -53,73 +54,63 @@ function AuthPage({
   }, [onAuthenticated]);
 
   useEffect(() => {
-    if (!GOOGLE_CLIENT_ID || !googleButtonRef.current) return undefined;
+    if (!GOOGLE_CLIENT_ID || window.google?.accounts?.id) return undefined;
 
     let cancelled = false;
-    const renderButton = (): void => {
-      const googleIdentity = window.google?.accounts?.id;
-      const buttonContainer = googleButtonRef.current;
-      if (cancelled || !googleIdentity || !buttonContainer) return;
-
-      buttonContainer.replaceChildren();
-      googleIdentity.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: async ({ credential }) => {
-          setError('');
-          setIsSubmitting(true);
-          try {
-            const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
-              method: 'POST',
-              credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ credential }),
-            });
-            const user = await readResponse<AuthUser>(response);
-            await onAuthenticatedRef.current(user);
-          } catch (authError: unknown) {
-            setError(getErrorMessage(authError));
-          } finally {
-            setIsSubmitting(false);
-          }
-        },
-      });
-      googleIdentity.renderButton(buttonContainer, {
-        theme: 'outline',
-        size: 'large',
-        shape: 'rectangular',
-        text: 'continue_with',
-        width: Math.min(360, buttonContainer.clientWidth || 360),
-      });
-    };
-
-    const existingScript = document.querySelector(
-      'script[data-google-identity]',
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.dataset.googleIdentity = 'true';
+    script.addEventListener('load', () => {
+      if (!cancelled && window.google?.accounts?.id) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: async ({ credential }) => {
+            setError('');
+            setIsSubmitting(true);
+            try {
+              const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ credential }),
+              });
+              const user = await readResponse<AuthUser>(response);
+              await onAuthenticatedRef.current(user);
+            } catch (authError: unknown) {
+              setError(getErrorMessage(authError));
+            } finally {
+              setIsSubmitting(false);
+            }
+          },
+        });
+      }
+    });
+    script.addEventListener(
+      'error',
+      () => {
+        if (!cancelled) setError('Google sign-in could not be loaded.');
+      },
+      { once: true },
     );
-    if (window.google?.accounts?.id) {
-      renderButton();
-    } else if (existingScript) {
-      existingScript.addEventListener('load', renderButton, { once: true });
-    } else {
-      const script = document.createElement('script');
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.defer = true;
-      script.dataset.googleIdentity = 'true';
-      script.addEventListener('load', renderButton, { once: true });
-      script.addEventListener(
-        'error',
-        () => {
-          if (!cancelled) setError('Google sign-in could not be loaded.');
-        },
-        { once: true },
-      );
-      document.head.appendChild(script);
-    }
+    document.head.appendChild(script);
 
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const handleGoogleSignIn = (): void => {
+    const googleIdentity = window.google?.accounts?.id;
+    if (!googleIdentity || !googleButtonRef.current) return;
+
+    googleIdentity.prompt((notification) => {
+      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+        googleButtonRef.current?.focus();
+      }
+    });
+  };
 
   const handleSubmit = async (
     event: FormEvent<HTMLFormElement>,
@@ -325,7 +316,16 @@ function AuthPage({
           </div>
 
           {GOOGLE_CLIENT_ID ? (
-            <div className="google-button" ref={googleButtonRef} />
+            <button
+              ref={googleButtonRef}
+              type="button"
+              className="google-button"
+              onClick={handleGoogleSignIn}
+              disabled={isSubmitting}
+            >
+              <img src={GoogleLogo} alt="" width="18" height="18" />
+              <span>Continue with Google</span>
+            </button>
           ) : (
             <div className="google-unavailable">
               <button
@@ -333,10 +333,8 @@ function AuthPage({
                 disabled
                 aria-label="Google sign-in is not configured"
               >
-                <span className="google-g" aria-hidden="true">
-                  G
-                </span>
-                Continue with Google
+                <img src={GoogleLogo} alt="" width="18" height="18" />
+                <span>Continue with Google</span>
               </button>
               <small>Google sign-in needs a configured OAuth client ID.</small>
             </div>

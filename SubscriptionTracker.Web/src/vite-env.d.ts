@@ -28,6 +28,12 @@ declare global {
               width: number;
             },
           ) => void;
+          prompt: (
+            callback: (notification: {
+              isNotDisplayed: () => boolean;
+              isSkippedMoment: () => boolean;
+            }) => void,
+          ) => void;
         };
       };
     };
