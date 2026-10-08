@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink } from 'react-router';
 import SubscriptionTrackerLogo from '../assets/subscription-tracker-logo.svg';
 import type { AuthUser } from '../types';
 import './TopBar.css';
