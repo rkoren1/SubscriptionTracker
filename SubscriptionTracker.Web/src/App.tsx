@@ -516,23 +516,6 @@ function App() {
             }
           />
           <Route
-            path="/new-subscription"
-            element={
-              <div className="new-subscription-page">
-                <SubscriptionForm
-                  form={form}
-                  isEditing={isEditing}
-                  isSubmitting={isSubmitting}
-                  error={error}
-                  success={success}
-                  onChange={handleChange}
-                  onSubmit={handleSubmit}
-                  onCancel={resetForm}
-                />
-              </div>
-            }
-          />
-          <Route
             path="/sign-in"
             element={
               <AuthPage

@@ -136,11 +136,6 @@ h1 {
   padding: 28px 0;
 }
 
-.new-subscription-page {
-  max-width: 620px;
-  margin: 0 auto;
-}
-
 @media (max-width: 860px) {
   .app-shell {
     grid-template-columns: 1fr;

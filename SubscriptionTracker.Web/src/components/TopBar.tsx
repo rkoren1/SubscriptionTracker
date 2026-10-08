@@ -10,7 +10,6 @@ interface TopBarProps {
 const navigationItems = [
   { to: '/overview', label: 'Overview' },
   { to: '/chart', label: 'Spending chart' },
-  { to: '/new-subscription', label: 'New subscription' },
 ];
 
 export default function TopBar({ currentUser, onLogout }: TopBarProps) {
