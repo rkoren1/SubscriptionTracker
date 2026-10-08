@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import SubscriptionTrackerLogo from '../assets/subscription-tracker-logo.svg';
 import type { AuthUser } from '../types';
 import './TopBar.css';
 
@@ -16,9 +17,11 @@ export default function TopBar({ currentUser, onLogout }: TopBarProps) {
   return (
     <header className="topbar">
       <div className="brand-block">
-        <span className="brand-mark" aria-hidden="true">
-          S
-        </span>
+        <img
+          className="brand-mark"
+          src={SubscriptionTrackerLogo}
+          alt="Subscription Tracker"
+        />
         <div>
           <p className="eyebrow">Personal finance</p>
           <h1>Subscription Tracker</h1>

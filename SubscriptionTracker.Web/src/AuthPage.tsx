@@ -1,6 +1,7 @@
 import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import GoogleLogo from './assets/google-logo.svg';
+import SubscriptionTrackerLogo from './assets/subscription-tracker-logo.svg';
 import './AuthPage.css';
 import type { AuthUser } from './types';
 
@@ -175,9 +176,11 @@ function AuthPage({
     <main className="auth-screen">
       <aside className="auth-brand" aria-label="Subscription Tracker">
         <div className="brand-lockup">
-          <span className="brand-symbol" aria-hidden="true">
-            S
-          </span>
+          <img
+            className="brand-symbol"
+            src={SubscriptionTrackerLogo}
+            alt="Subscription Tracker"
+          />
           <span>
             Subscription
             <br />
