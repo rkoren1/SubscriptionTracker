@@ -32,6 +32,7 @@ const emptyForm: SubscriptionFormState = {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'https://localhost:7121';
 const LOCAL_STORAGE_KEY = 'subscription-tracker-subscriptions';
+const AUTH_STORAGE_KEY = 'subscription-tracker-user';
 const annualMultipliers: Record<BillingCycle, number> = {
   0: 52,
   1: 12,
@@ -158,6 +159,24 @@ function writeLocalSubscriptions(subscriptions: Subscription[]): void {
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(subscriptions));
 }
 
+function readStoredUser(): AuthUser | null {
+  try {
+    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+    return stored ? (JSON.parse(stored) as AuthUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredUser(user: AuthUser | null): void {
+  if (user) {
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+    return;
+  }
+
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+}
+
 async function importLocalSubscriptions(): Promise<void> {
   const localSubscriptions = readLocalSubscriptions();
   if (localSubscriptions.length === 0) return;
@@ -178,7 +197,9 @@ async function importLocalSubscriptions(): Promise<void> {
 }
 
 function App() {
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(
+    readStoredUser,
+  );
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(
     readLocalSubscriptions,
@@ -262,13 +283,17 @@ function App() {
         const sessionResponse = await fetch(`${API_BASE_URL}/api/auth/me`, {
           credentials: 'include',
         }).catch(() => null);
-        if (!sessionResponse?.ok) return;
+        if (!sessionResponse?.ok) {
+          setIsCheckingSession(false);
+          return;
+        }
 
         const user = (await sessionResponse.json()) as AuthUser;
         if (cancelled) return;
         await importLocalSubscriptions();
         if (cancelled) return;
         setCurrentUser(user);
+        writeStoredUser(user);
         setIsLoading(true);
 
         const subscriptionResponse = await fetch(
@@ -302,6 +327,7 @@ function App() {
   const handleAuthenticated = async (user: AuthUser): Promise<void> => {
     await importLocalSubscriptions();
     setCurrentUser(user);
+    writeStoredUser(user);
     setError('');
     setSuccess('');
     await fetchSubscriptions();
@@ -314,6 +340,7 @@ function App() {
       credentials: 'include',
     }).catch(() => undefined);
     setCurrentUser(null);
+    writeStoredUser(null);
     setSubscriptions(readLocalSubscriptions());
     resetForm();
   };
